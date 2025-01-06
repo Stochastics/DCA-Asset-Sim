@@ -1,7 +1,6 @@
+import yaml
 import yfinance as yf
 import pandas as pd
-import numpy as np
-import matplotlib.pyplot as plt
 from datetime import datetime, timedelta
 
 def simulate_dca(assets, allocations, total_weekly_investment, years):
@@ -19,7 +18,6 @@ def simulate_dca(assets, allocations, total_weekly_investment, years):
     """
     if len(assets) != len(allocations):
         raise ValueError("Allocations must be the same length as assets.")
-
     if sum(allocations) > 1.0:
         raise ValueError("Allocations must sum to 1.0 or less.")
 
@@ -31,12 +29,11 @@ def simulate_dca(assets, allocations, total_weekly_investment, years):
         data = data['Close']
     except KeyError:
         raise KeyError("No 'Close' column found in the data. Check the data structure or asset tickers.")
-
     data.ffill(inplace=True)
 
     investment_summary = {}
     for asset, allocation in zip(assets, allocations):
-        if allocation == 0:  # Skip assets with 0 allocation
+        if allocation == 0:
             continue
 
         weekly_investment = total_weekly_investment * allocation
@@ -62,17 +59,43 @@ def simulate_dca(assets, allocations, total_weekly_investment, years):
             'Annualized Return (%)': annualized_return * 100,
         }
 
-    summary_df = pd.DataFrame.from_dict(investment_summary, orient='index')
-    return summary_df
+    return pd.DataFrame.from_dict(investment_summary, orient='index')
 
 
-# Define assets, allocations, and other parameters
-assets = ['BTC-USD', 'QQQ', 'VTI']
-allocations = [0.33, 0.33, 0.33]  # 50% BTC, 50% QQQ, 0% VTI
-total_weekly_investment = 1000  # Total $100 invested weekly
-years = 8  # Simulate for the past 5 years
+if __name__ == "__main__":
+    with open("scenarios.yaml", "r") as config_file:
+        scenarios = yaml.safe_load(config_file)["scenarios"]
 
-# Run the simulation
-results = simulate_dca(assets, allocations, total_weekly_investment, years)
-print("DCA Simulation Results:")
-print(results)
+    for scenario in scenarios:
+        print(f"Running scenario: {scenario['name']}")
+        assets = scenario["assets"]
+        weights = scenario["weights"]
+        years = 10
+        results = simulate_dca(assets, weights, total_weekly_investment=5, years=years)
+
+        # Ensure numeric validity
+        results['Final Value'] = results['Final Value'].fillna(0).astype(float)
+        results['Total Return (%)'] = results['Total Return (%)'].fillna(0).astype(float)
+
+        # Total investment and final value
+        total_investment = results['Total Investment'].sum()
+        total_final_value = results['Final Value'].sum()
+
+        # Portfolio-level total return
+        total_return = (total_final_value - total_investment) / total_investment * 100
+
+        # Portfolio-level annualized return
+        total_annualized_return = ((total_final_value / total_investment) ** (1 / years) - 1) * 100
+
+        # Add total row
+        total_row = pd.DataFrame({
+            'Total Investment': [total_investment],
+            'Final Value': [total_final_value],
+            'Total Return (%)': [total_return],
+            'Annualized Return (%)': [total_annualized_return],
+        }, index=["Total"])
+
+        results = pd.concat([results, total_row])
+        print(results)
+        print(f"Scenario {scenario['name']} completed.\n")
+

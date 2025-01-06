@@ -13,8 +13,8 @@ echo "Creating a virtual environment..."
 python3 -m venv dca_env
 source dca_env/bin/activate
 
-echo "Installing required Python packages using a faster PyPI mirror..."
-pip install numpy pandas matplotlib yfinance --index-url https://pypi.tuna.tsinghua.edu.cn/simple/ --timeout 300
+echo "Installing required Python packages from requirements.txt..."
+pip install -r requirements.txt --index-url https://pypi.tuna.tsinghua.edu.cn/simple/ --timeout 300
 
 echo "Setup complete. To start using the environment, run:"
 echo "source dca_env/bin/activate"
