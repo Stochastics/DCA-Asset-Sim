@@ -65,9 +65,11 @@ def calculate_summary_metrics(portfolio_values, total_investment, years):
     running_max = portfolio_series.cummax()
     drawdowns = (portfolio_series - running_max) / running_max
     max_drawdown = drawdowns.min() * 100
+
     final_value = portfolio_values[-1] if portfolio_values else 0
     total_return = (final_value - total_investment) / total_investment
     annualized_return = (1 + total_return) ** (1 / years) - 1
+
     weekly_returns = portfolio_series.pct_change().dropna()
     annualized_volatility = weekly_returns.std() * (52 ** 0.5) * 100
 
@@ -118,12 +120,18 @@ def format_assets_and_weights(assets, weights):
         output.append(f"  - {asset}: {weight * 100:.2f}%")
     return "\n".join(output)
 
-if __name__ == "__main__":
+def parse_arguments():
+    """
+    Parses command-line arguments.
+    """
     parser = argparse.ArgumentParser(description="Simulate DCA for various scenarios.")
     parser.add_argument("--config", type=str, required=True, help="Path to the YAML configuration file.")
-    parser.add_argument("--total_weekly_investment", type=float, default=None, help="Total weekly investment amounts.")
-    parser.add_argument("--years", type=int, default=None, help="Number of years of portfolio")
-    args = parser.parse_args()
+    parser.add_argument("--total_weekly_investment", type=float, default=None, help="Total weekly investment amount to override the scenario defaults.")
+    parser.add_argument("--years", type=int, default=None, help="Number of years to override the scenario defaults.")
+    return parser.parse_args()
+
+if __name__ == "__main__":
+    args = parse_arguments()
 
     with open(args.config, "r") as config_file:
         scenarios = yaml.safe_load(config_file)["scenarios"]
