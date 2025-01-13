@@ -1,32 +1,32 @@
 scenarios:
-  - name: "Max Min Vol"
+  - name: "MinVol"
     assets: ["BTC-USD", "QQQ", "VTI"]
     weights: [0.0, 0.0, 1.0]
 
-  - name: "Very Low Vol"
+  - name: "VLowVol"
     assets: ["BTC-USD", "QQQ", "VTI"]
     weights: [0.1, 0.2, 0.7]
 
-  - name: "Low Vol"
+  - name: "LowVol"
     assets: ["BTC-USD", "QQQ", "VTI"]
     weights: [0.2, 0.3, 0.5]
 
-  - name: "Medium Vol"
+  - name: "MedVol"
     assets:  ["BTC-USD", "QQQ", "VTI"]
     weights: [0.33, 0.33, 0.34]
 
-  - name: "High Vol"
+  - name: "HighVol"
     assets:  ["BTC-USD", "QQQ", "VTI"]
     weights: [0.4, 0.6, 0.0]
 
-  - name:  "Very High Vol"
+  - name:  "VHighVol"
     assets:  ["BTC-USD", "QQQ", "VTI"]
     weights: [0.8, 0.2, 0.0]
 
-  - name:  "Max High Vol"
+  - name:  "MHighVol"
     assets:  ["BTC-USD", "QQQ", "VTI"]
     weights: [1.0,0.0,0.0]
 
-  - name:  "RICH AF KING PORTFOLIO"
+  - name:  "KING"
     assets:  ["BTC-USD","MSTR", "TSLA"]
-    weights: [0.33,0.33,0.34]
+    weights: [0.60,0.30,0.10]
