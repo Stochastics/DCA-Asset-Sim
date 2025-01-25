@@ -106,12 +106,14 @@ def process_scenario(scenario, total_weekly_investment=None, years=None):
 
     return summary, detailed_metrics
 
-def save_combined_metrics(all_detailed_metrics, filename="combined_detailed_metrics.csv"):
+def save_combined_metrics(all_detailed_metrics, 
+                          folder,
+                          filename="combined_detailed_metrics.csv"):
     """
     Combines all detailed metrics and saves to a CSV file.
     """
     combined_metrics = pd.concat(all_detailed_metrics, ignore_index=True)
-    combined_metrics.to_csv(filename, index=False)
+    combined_metrics.to_csv(folder + "/" + filename, index=False)
     print(f"\nAll scenarios' detailed metrics have been saved to '{filename}'.")
 
 def format_assets_and_weights(assets, weights):
@@ -123,6 +125,68 @@ def format_assets_and_weights(assets, weights):
         output.append(f"  - {asset}: {weight * 100:.2f}%")
     return "\n".join(output)
 
+def analyze_asset_correlation(assets, start_date, end_date, window_size='30D', data_freq='1D'):
+    """
+    Analyzes the correlation between two assets over time using a rolling window.
+    
+    Parameters:
+    - assets (list): List of two asset tickers to analyze
+    - start_date (datetime): Start date for the analysis
+    - end_date (datetime): End date for the analysis
+    - window_size (str): Size of the rolling window (e.g., '30D' for 30 days, '12W' for 12 weeks)
+    - data_freq (str): Frequency of the data ('1D' for daily, '1W' for weekly)
+    
+    Returns:
+    - tuple: (correlation_df, mean_correlation)
+        - correlation_df: DataFrame with rolling correlations over time
+        - mean_correlation: Average correlation over the entire period
+    """
+    if len(assets) != 2:
+        raise ValueError("Exactly two assets must be provided for correlation analysis")
+    
+    # Fetch data for the assets
+    data = yf.download(assets, start=start_date, end=end_date, interval=data_freq)['Close']
+    
+    # Calculate returns
+    returns = data.pct_change().dropna()
+    
+    # Calculate rolling correlation
+    rolling_correlation = returns[assets[0]].rolling(window=window_size).corr(returns[assets[1]])
+    
+    # Calculate mean correlation
+    mean_correlation = returns[assets[0]].corr(returns[assets[1]])
+    
+    # Create correlation DataFrame
+    correlation_df = pd.DataFrame({
+        'Date': rolling_correlation.index,
+        'Correlation': rolling_correlation.values
+    })
+    
+    return correlation_df, mean_correlation
+
+def run_correlation_analysis(assets, start_date, end_date, window_size='30D', data_freq='1D'):
+    """
+    Runs a complete correlation analysis for two assets and displays the results.
+    
+    Parameters:
+    - assets (list): List of two asset tickers to analyze
+    - start_date (datetime): Start date for the analysis
+    - end_date (datetime): End date for the analysis
+    - window_size (str): Size of the rolling window
+    - data_freq (str): Frequency of the data
+    """
+    correlation_df, mean_correlation = analyze_asset_correlation(
+        assets, start_date, end_date, window_size, data_freq
+    )
+    
+    print(f"\nCorrelation Analysis Results for {assets[0]} and {assets[1]}:")
+    print(f"Time Period: {start_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')}")
+    print(f"Average Correlation: {mean_correlation:.3f}")
+    
+    plot_correlation_analysis(correlation_df, assets, mean_correlation, window_size)
+    
+    return correlation_df, mean_correlation
+
 def parse_arguments():
     """
     Parses command-line arguments.
@@ -132,115 +196,6 @@ def parse_arguments():
     parser.add_argument("--total_weekly_investment", type=float, default=None, help="Total weekly investment amount to override the scenario defaults.")
     parser.add_argument("--years", type=int, default=None, help="Number of years to override the scenario defaults.")
     return parser.parse_args()
-
-def plot_portfolio_value(detailed_metrics, scenario_name):
-    """
-    Plots the portfolio value over time for a given scenario.
-    """
-    plt.figure(figsize=(10, 6))
-    sns.lineplot(data=detailed_metrics, x='Date', y='Portfolio Value', label=scenario_name)
-    plt.title(f"Portfolio Value Over Time - {scenario_name}")
-    plt.xlabel("Date")
-    plt.ylabel("Portfolio Value ($)")
-    plt.legend()
-    plt.grid()
-    plt.tight_layout()
-    plt.show()
-
-def plot_weekly_returns(detailed_metrics, scenario_name):
-    """
-    Plots the weekly returns for a given scenario.
-    """
-    plt.figure(figsize=(10, 6))
-    sns.lineplot(data=detailed_metrics, x='Date', y='Weekly Return (%)', label=scenario_name)
-    plt.axhline(0, color='red', linestyle='--', linewidth=0.8)
-    plt.title(f"Weekly Returns - {scenario_name}")
-    plt.xlabel("Date")
-    plt.ylabel("Weekly Return (%)")
-    plt.legend()
-    plt.grid()
-    plt.tight_layout()
-    plt.show()
-
-def plot_cumulative_return(detailed_metrics, scenario_name):
-    """
-    Plots the cumulative return over time for a given scenario.
-    """
-    plt.figure(figsize=(10, 6))
-    sns.lineplot(data=detailed_metrics, x='Date', y='Cumulative Return (%)', label=scenario_name)
-    plt.axhline(0, color='red', linestyle='--', linewidth=0.8)
-    plt.title(f"Cumulative Return Over Time - {scenario_name}")
-    plt.xlabel("Date")
-    plt.ylabel("Cumulative Return (%)")
-    plt.legend()
-    plt.grid()
-    plt.tight_layout()
-    plt.show()
-
-import matplotlib.pyplot as plt
-import pandas as pd
-
-def plot_combined_metrics(all_summaries, metrics, title, output_dir=None):
-    """
-    Plots a grouped bar chart comparing key metrics across scenarios.
-
-    Parameters:
-    - all_summaries (list of dicts): Summary metrics for each scenario.
-    - metrics (list of str): List of metric names to compare (e.g., 'Total Return (%)').
-    - title (str): Title of the plot.
-    - output_dir (str, optional): Directory to save the plot. If None, the plot is displayed.
-    """
-    # Convert summaries to a DataFrame
-    df = pd.DataFrame(all_summaries)
-    df.set_index("Scenario", inplace=True)
-    df = df[metrics]
-    ax = df.plot(kind="bar", figsize=(10, 6), edgecolor="black")
-    ax.set_title(title)
-    ax.set_ylabel("Percentage")
-    ax.set_xlabel("Scenario")
-    ax.legend(title="Metrics")
-    plt.xticks(rotation=45, ha="right")
-    plt.tight_layout()
-
-    if output_dir:
-        filename = f"{output_dir}/combined_metrics_comparison.png"
-        plt.savefig(filename)
-        print(f"Plot saved to {filename}")
-    else:
-        plt.show()
-
-
-def plot_combined_metrics_panel(all_summaries, scenarios, metrics, output_dir=None):
-    """
-    Creates a 2x2 panel comparison for selected metrics across all scenarios.
-
-    Parameters:
-    - all_summaries (list of dicts): Summary metrics for each scenario.
-    - scenarios (list of dicts): Scenario definitions for labels.
-    - metrics (list of str): Metrics to plot in the panel.
-    - output_dir (str, optional): Directory to save the plot. If None, the plot is displayed.
-    """
-
-    df = pd.DataFrame(all_summaries)
-    df["Scenario"] = [s["name"] for s in scenarios]
-    df.set_index("Scenario", inplace=True)
-    fig, axes = plt.subplots(2, 2, figsize=(12, 10))
-    axes = axes.flatten()
-
-    for i, metric in enumerate(metrics):
-        df[metric].sort_values().plot(kind="bar", ax=axes[i], color="skyblue", edgecolor="black")
-        axes[i].set_title(metric)
-        axes[i].set_ylabel("Value")
-        axes[i].tick_params(axis="x", labelrotation=0, labelsize=8)
-
-    plt.tight_layout()
-
-    if output_dir:
-        filename = f"{output_dir}/metrics_panel.png"
-        plt.savefig(filename)
-        print(f"Metrics panel saved to {filename}")
-    else:
-        plt.show()
 
 def dca_asset_simulator(config_path, total_weekly_investment=None, years=None, output_dir=None):
     """
@@ -295,40 +250,61 @@ def dca_asset_simulator(config_path, total_weekly_investment=None, years=None, o
         "Maximum Drawdown (%)",
         "Average Volatility (%)"
     ]
-
-    plot_combined_metrics_panel(all_summaries, scenarios, metrics_to_compare, output_dir)
-    save_combined_metrics(all_detailed_metrics)
+    save_combined_metrics(all_detailed_metrics,"outputs")
 
     return all_summaries, all_detailed_metrics
 
 if __name__ == "__main__":
     import argparse
 
-    parser = argparse.ArgumentParser(description="DCA Asset Simulator")
-    parser.add_argument("--config", type=str, required=True, help="Path to the YAML configuration file.")
+    parser = argparse.ArgumentParser(description="DCA Asset Simulator and Asset Correlation Analysis")
+    
+    # Original DCA simulation arguments
+    parser.add_argument("--config", type=str, help="Path to the YAML configuration file.")
     parser.add_argument("--total_weekly_investment", type=float, default=None, help="Weekly investment override.")
     parser.add_argument("--years", type=int, default=None, help="Override for number of years.")
     parser.add_argument("--output-dir", type=str, default=None, help="Directory to save comparison plots.")
+    
+    # New correlation analysis arguments
+    parser.add_argument("--correlation", action="store_true", help="Run correlation analysis")
+    parser.add_argument("--asset1", type=str, help="First asset for correlation analysis")
+    parser.add_argument("--asset2", type=str, help="Second asset for correlation analysis")
+    parser.add_argument("--window", type=str, default="30D", 
+                       help="Rolling window size for correlation (e.g., '30D', '12W', '3M')")
+    parser.add_argument("--freq", type=str, default="1D",
+                       help="Data frequency for correlation ('1D' for daily, '1W' for weekly)")
+    
     args = parser.parse_args()
 
-    dca_asset_simulator(
-        config_path=args.config,
-        total_weekly_investment=args.total_weekly_investment,
-        years=args.years,
-        output_dir=args.output_dir
-    )
-    import argparse
-
-    parser = argparse.ArgumentParser(description="DCA Asset Simulator")
-    parser.add_argument("--config", type=str, required=True, help="Path to the YAML configuration file.")
-    parser.add_argument("--total_weekly_investment", type=float, default=None, help="Weekly investment override.")
-    parser.add_argument("--years", type=int, default=None, help="Override for number of years.")
-    parser.add_argument("--output-dir", type=str, default=None, help="Directory to save comparison plots.")
-    args = parser.parse_args()
-
-    dca_asset_simulator(
-        config_path=args.config,
-        total_weekly_investment=args.total_weekly_investment,
-        years=args.years,
-        output_dir=args.output_dir
-    )
+    # Run DCA simulation if config file is provided
+    if args.config:
+        dca_asset_simulator(
+            config_path=args.config,
+            total_weekly_investment=args.total_weekly_investment,
+            years=args.years,
+            output_dir=args.output_dir
+        )
+    
+    # Run correlation analysis if requested
+    if args.correlation:
+        if not (args.asset1 and args.asset2):
+            print("Error: Both --asset1 and --asset2 must be provided for correlation analysis")
+        else:
+            end_date = datetime.now()
+            start_date = end_date - timedelta(days=(args.years or 5) * 365)
+            
+            print(f"\nRunning correlation analysis for {args.asset1} and {args.asset2}")
+            print(f"Window size: {args.window}, Frequency: {args.freq}")
+            
+            correlation_df, mean_correlation = run_correlation_analysis(
+                assets=[args.asset1, args.asset2],
+                start_date=start_date,
+                end_date=end_date,
+                window_size=args.window,
+                data_freq=args.freq
+            )
+            
+            if args.output_dir:
+                output_file = f"{args.output_dir}/correlation_{args.asset1}_{args.asset2}.csv"
+                correlation_df.to_csv(output_file)
+                print(f"Correlation data saved to: {output_file}")

@@ -73,7 +73,8 @@ scenarios:
 Run the simulation program to process the scenarios defined in `scenarios.yaml`:
 
 ```bash
-python DCA_SIMULATOR.py
+python dca_simulator.py --config path/to/config.yaml --total_weekly_investment 500 --years 10 --output-dir path/to/output
+
 ```
 
 The program will output:
